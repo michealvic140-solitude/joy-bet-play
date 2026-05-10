@@ -405,79 +405,190 @@ function UserEditDialog({ user, roles, onClose }: { user: any; roles: string[]; 
     toast.success(`− ${role}`); onClose();
   }
 
+  const wonCount = bets.filter((b: any) => b.status === "won").length;
+  const initials = (user.full_name ?? "U").split(" ").map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
+  const userIdShort = String(user.id).replace(/-/g, "").slice(0, 9);
+  function copyId() { navigator.clipboard.writeText(user.id); toast.success("User ID copied"); }
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Manage {user.full_name}</DialogTitle>
-        </DialogHeader>
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="tokens">Tokens</TabsTrigger>
-            <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="actions">Actions</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
-          <TabsContent value="profile" className="space-y-2 mt-3">
-            <Input placeholder="Full name" value={form.full_name ?? ""} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-            <Input placeholder="Phone" value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <Input placeholder="Discord" value={form.discord_username ?? ""} onChange={(e) => setForm({ ...form, discord_username: e.target.value })} />
-            <Input placeholder="Country" value={form.country ?? ""} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-            <Input placeholder="Gang name" value={form.gang_name ?? ""} onChange={(e) => setForm({ ...form, gang_name: e.target.value })} />
-            <Button className="btn-luxury" onClick={saveProfile}>Save profile</Button>
-          </TabsContent>
-          <TabsContent value="tokens" className="space-y-3 mt-3">
-            <div className="text-sm">Current balance: <span className="font-bold text-primary">{(user.token_balance ?? 0).toLocaleString()}</span></div>
-            <Input type="number" placeholder="Delta (use negative to remove)" value={tokenDelta || ""} onChange={(e) => setTokenDelta(Number(e.target.value))} />
-            <Input placeholder="Reason (required)" value={tokenReason} onChange={(e) => setTokenReason(e.target.value)} />
-            <Button className="btn-luxury" onClick={applyTokens}>Apply</Button>
-          </TabsContent>
-          <TabsContent value="roles" className="space-y-3 mt-3">
-            <div className="flex flex-wrap gap-1">
-              {roles.map((r) => (
-                <Badge key={r} variant="outline">{ROLE_LABELS[r as AppRole]} <button onClick={() => removeRole(r)} className="ml-1 text-destructive">×</button></Badge>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 border-primary/30 bg-gradient-to-b from-card to-background">
+        <div className="relative px-6 pt-10 pb-6">
+          {/* Avatar with golden glow */}
+          <div className="relative mx-auto h-24 w-24 -mt-4">
+            <div className="absolute inset-[-10px] rounded-3xl blur-2xl bg-[radial-gradient(circle,oklch(0.82_0.17_90/0.55),transparent_70%)]" />
+            <div className="relative h-24 w-24 rounded-3xl border-2 border-primary/70 bg-card grid place-items-center shadow-[0_0_30px_-4px_oklch(0.82_0.17_90/0.7)]">
+              {user.avatar_url
+                ? <img src={user.avatar_url} alt="" className="h-full w-full rounded-3xl object-cover" />
+                : <UserSilhouette />}
+            </div>
+          </div>
+
+          <div className="mt-3 flex justify-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border ${user.is_banned ? "border-destructive/40 text-destructive bg-destructive/10" : "border-emerald-400/40 text-emerald-300 bg-emerald-500/10"}`}>
+              {user.is_banned ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+              {user.is_banned ? "Banned" : "Active"}
+            </span>
+            <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-primary/40 text-primary bg-primary/10">
+              <Trophy className="h-3 w-3" />{wonCount} Matches Won
+            </span>
+          </div>
+
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-display tracking-wider">Manage {user.full_name}</DialogTitle>
+          </DialogHeader>
+
+          <Tabs value={tab} onValueChange={setTab} className="mt-4">
+            <TabsList className="bg-transparent w-full justify-start gap-4 border-b border-border rounded-none p-0 h-auto">
+              {[
+                ["profile", "Profile"],
+                ["tokens", "Tokens"],
+                ["roles", "Roles"],
+                ["actions", "Actions"],
+                ["history", "History"],
+              ].map(([v, l]) => (
+                <TabsTrigger
+                  key={v}
+                  value={v}
+                  className="relative px-1 pb-2 rounded-none bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-px data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-gold"
+                >{l}</TabsTrigger>
               ))}
-            </div>
-            <Select onValueChange={(v) => addRole(v as AppRole)}>
-              <SelectTrigger><SelectValue placeholder="Add role…" /></SelectTrigger>
-            <SelectContent>{(["viewer", "shooter", "gang_leader", "registered", "sponsor", "moderator", "admin"] as AppRole[]).map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}</SelectContent>
-            </Select>
-          </TabsContent>
-          <TabsContent value="actions" className="space-y-3 mt-3">
-            <Textarea placeholder="Reason (required for restrictive actions)" value={actionReason} onChange={(e) => setActionReason(e.target.value)} />
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant={user.is_banned ? "outline" : "destructive"} onClick={() => flagAction("is_banned", !user.is_banned, "ban_reason")}>{user.is_banned ? "Unban" : "Ban"}</Button>
-              <Button variant={user.is_muted ? "outline" : "destructive"} onClick={() => flagAction("is_muted", !user.is_muted, "mute_reason")}>{user.is_muted ? "Unmute chat" : "Mute chat"}</Button>
-              <Button variant={user.is_restricted ? "outline" : "destructive"} onClick={() => flagAction("is_restricted", !user.is_restricted, "restrict_reason")}>{user.is_restricted ? "Allow betting" : "Restrict betting"}</Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="history" className="space-y-3 mt-3">
-            <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Recent bets</div>
-              {bets.length === 0 && <div className="text-xs text-muted-foreground">None.</div>}
-              {bets.map((b) => (
-                <div key={b.id} className="flex justify-between text-xs py-1 border-b border-border/50">
-                  <span>{b.tracking_id} · {b.status}</span>
-                  <span>{b.stake} → {b.potential_payout}</span>
+            </TabsList>
+
+            <TabsContent value="profile" className="space-y-4 mt-5">
+              <FieldLuxe label="Display Name">
+                <Input value={form.full_name ?? ""} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="User ID">
+                <div className="flex gap-2">
+                  <Input readOnly value={userIdShort} className="font-mono" />
+                  <Button onClick={copyId} className="btn-luxury shrink-0"><Copy className="h-4 w-4 mr-1" />Copy</Button>
                 </div>
-              ))}
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Token transactions</div>
-              {tx.length === 0 && <div className="text-xs text-muted-foreground">None.</div>}
-              {tx.map((t) => (
-                <div key={t.id} className="flex justify-between text-xs py-1 border-b border-border/50">
-                  <span>{t.kind} · {t.description}</span>
-                  <span className={t.amount > 0 ? "text-primary" : "text-destructive"}>{t.amount > 0 ? "+" : ""}{t.amount}</span>
+              </FieldLuxe>
+              <FieldLuxe label="Email / Login">
+                <Input value={form.email ?? ""} readOnly className="bg-muted/40" />
+              </FieldLuxe>
+              <FieldLuxe label="Phone">
+                <Input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="Discord">
+                <Input value={form.discord_username ?? ""} onChange={(e) => setForm({ ...form, discord_username: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="Country">
+                <Input value={form.country ?? ""} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="Gang Name">
+                <Input value={form.gang_name ?? ""} onChange={(e) => setForm({ ...form, gang_name: e.target.value })} />
+              </FieldLuxe>
+              <Button className="btn-luxury w-full h-12 text-base font-bold" onClick={saveProfile}>Save Profile</Button>
+            </TabsContent>
+
+            <TabsContent value="tokens" className="space-y-4 mt-5">
+              <Card className="glass p-4 text-center">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Current Balance</div>
+                <div className="text-3xl font-black gradient-gold-text mt-1">{(user.token_balance ?? 0).toLocaleString()}</div>
+              </Card>
+              <FieldLuxe label="Delta (negative to revoke)">
+                <Input type="number" value={tokenDelta || ""} onChange={(e) => setTokenDelta(Number(e.target.value))} />
+              </FieldLuxe>
+              <FieldLuxe label="Reason (required)">
+                <Input value={tokenReason} onChange={(e) => setTokenReason(e.target.value)} />
+              </FieldLuxe>
+              <Button className="btn-luxury w-full h-11" onClick={applyTokens}>Apply</Button>
+            </TabsContent>
+
+            <TabsContent value="roles" className="space-y-4 mt-5">
+              <div className="flex flex-wrap gap-2 min-h-[40px]">
+                {roles.length === 0 && <div className="text-xs text-muted-foreground">No roles assigned.</div>}
+                {roles.map((r) => (
+                  <Badge key={r} variant="outline" className="border-primary/40 text-primary bg-primary/10 px-3 py-1">
+                    {ROLE_LABELS[r as AppRole]}
+                    <button onClick={() => removeRole(r)} className="ml-2 text-destructive hover:scale-110">×</button>
+                  </Badge>
+                ))}
+              </div>
+              <FieldLuxe label="Add role">
+                <Select onValueChange={(v) => addRole(v as AppRole)}>
+                  <SelectTrigger><SelectValue placeholder="Add role…" /></SelectTrigger>
+                  <SelectContent>
+                    {(["viewer", "shooter", "gang_leader", "registered", "sponsor", "moderator", "admin"] as AppRole[]).map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FieldLuxe>
+            </TabsContent>
+
+            <TabsContent value="actions" className="space-y-4 mt-5">
+              <FieldLuxe label="Reason (required for restrictive actions)">
+                <Textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} rows={3} />
+              </FieldLuxe>
+              <div className="grid grid-cols-1 gap-2">
+                <Button variant={user.is_banned ? "outline" : "destructive"} className="h-11 justify-start" onClick={() => flagAction("is_banned", !user.is_banned, "ban_reason")}>
+                  <Lock className="h-4 w-4 mr-2" />{user.is_banned ? "Unban user" : "Ban user from platform"}
+                </Button>
+                <Button variant={user.is_muted ? "outline" : "destructive"} className="h-11 justify-start" onClick={() => flagAction("is_muted", !user.is_muted, "mute_reason")}>
+                  <MessageSquare className="h-4 w-4 mr-2" />{user.is_muted ? "Unmute chat" : "Mute in chat"}
+                </Button>
+                <Button variant={user.is_restricted ? "outline" : "destructive"} className="h-11 justify-start" onClick={() => flagAction("is_restricted", !user.is_restricted, "restrict_reason")}>
+                  <AlertTriangle className="h-4 w-4 mr-2" />{user.is_restricted ? "Allow betting" : "Restrict betting"}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-5 mt-5">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Recent bets</div>
+                {bets.length === 0 && <div className="text-xs text-muted-foreground">None yet.</div>}
+                <div className="space-y-1">
+                  {bets.map((b) => (
+                    <div key={b.id} className="glass p-2 rounded-lg flex justify-between text-xs items-center">
+                      <span className="font-mono truncate">{b.tracking_id}</span>
+                      <span className="capitalize text-muted-foreground">{b.status}</span>
+                      <span className="font-bold">{Number(b.stake).toLocaleString()} → <span className="text-primary">{Number(b.potential_payout).toLocaleString()}</span></span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-        <DialogFooter><Button variant="outline" onClick={onClose}>Close</Button></DialogFooter>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Token transactions</div>
+                {tx.length === 0 && <div className="text-xs text-muted-foreground">None.</div>}
+                <div className="space-y-1">
+                  {tx.map((t) => (
+                    <div key={t.id} className="glass p-2 rounded-lg flex justify-between text-xs items-center">
+                      <span className="capitalize text-muted-foreground">{t.kind}</span>
+                      <span className="truncate flex-1 px-2">{t.description}</span>
+                      <span className={`font-bold ${t.amount > 0 ? "text-emerald-300" : "text-destructive"}`}>{t.amount > 0 ? "+" : ""}{Number(t.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+        <DialogFooter className="px-6 pb-4">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FieldLuxe({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function UserSilhouette() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-12 w-12 text-muted-foreground/70" fill="currentColor" aria-hidden>
+      <circle cx="32" cy="22" r="11" />
+      <path d="M10 56c0-12 10-20 22-20s22 8 22 20v4H10z" />
+    </svg>
   );
 }
 
