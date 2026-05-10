@@ -544,7 +544,7 @@ function MatchesPanel() {
 
 async function settleBetsForMatch(matchId: string, winnerTeamId: string | null) {
   // Get all bet selections for this match
-  const { data: sels } = await supabase.from("bet_selections").select("*, markets!market_id(name), odds:odd_id(label)").eq("match_id", matchId);
+  const { data: sels } = await supabase.from("bet_selections").select("*, markets!market_id(name), odds!odd_id(label)").eq("match_id", matchId);
   if (!sels || sels.length === 0) return;
   // Get team names for label comparison
   const { data: match } = await supabase.from("matches").select("home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)").eq("id", matchId).single() as any;
