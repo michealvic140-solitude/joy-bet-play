@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, User as UserIcon, Shield, MessageSquare, Home, Trophy, Ticket, LifeBuoy, Wallet, Crosshair } from "lucide-react";
+import { LogOut, User as UserIcon, Shield, MessageSquare, Home, Trophy, Ticket, LifeBuoy, Wallet, Crosshair as MatchIcon } from "lucide-react";
 import { GangLogo } from "@/components/GangLogo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +73,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         <div className="overflow-x-auto">
           <div className="flex items-center gap-1 px-2 py-2 min-w-max">
             <MobLink to="/" icon={Home} label="Home" />
-            <MobLink to="/matches" icon={Crosshair} label="Matches" />
+            <MobLink to="/matches" icon={MatchIcon} label="Matches" />
             <MobLink to="/leaderboard" icon={Trophy} label="Top" />
             {user && <>
               <MobLink to="/dashboard" icon={Ticket} label="Bets" />
