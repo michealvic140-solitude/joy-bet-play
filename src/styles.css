@@ -196,3 +196,78 @@
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ===== Voucher visuals (luxury glass + circuit + holo) ===== */
+@layer utilities {
+  .voucher-bg {
+    background:
+      radial-gradient(ellipse at top left, oklch(0.65 0.17 158 / 0.18), transparent 55%),
+      radial-gradient(ellipse at bottom right, oklch(0.82 0.17 90 / 0.15), transparent 60%),
+      linear-gradient(160deg, oklch(0.12 0.04 165) 0%, oklch(0.10 0.03 270) 50%, oklch(0.14 0.05 165) 100%);
+  }
+  .voucher-frame {
+    box-shadow:
+      0 0 0 1px oklch(0.65 0.17 158 / 0.45),
+      0 0 0 2px oklch(0.82 0.17 90 / 0.25),
+      0 0 30px -2px oklch(0.65 0.17 158 / 0.55),
+      0 0 60px -10px oklch(0.82 0.17 90 / 0.45),
+      inset 0 1px 0 oklch(0.95 0.05 90 / 0.15),
+      inset 0 -2px 0 oklch(0 0 0 / 0.4);
+  }
+  .voucher-circuit {
+    background-image:
+      linear-gradient(oklch(0.82 0.17 90 / 0.10) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.82 0.17 90 / 0.10) 1px, transparent 1px),
+      radial-gradient(circle, oklch(0.65 0.17 158 / 0.2) 1.5px, transparent 1.6px);
+    background-size: 24px 24px, 24px 24px, 48px 48px;
+    background-position: 0 0, 0 0, 12px 12px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+  }
+  .voucher-holo {
+    background:
+      conic-gradient(from 90deg at 50% 50%,
+        oklch(0.85 0.18 30 / 0.55),
+        oklch(0.85 0.18 90 / 0.55),
+        oklch(0.85 0.18 158 / 0.55),
+        oklch(0.85 0.18 240 / 0.55),
+        oklch(0.85 0.18 320 / 0.55),
+        oklch(0.85 0.18 30 / 0.55));
+    filter: blur(2px) saturate(140%);
+    mix-blend-mode: screen;
+    opacity: 0.55;
+  }
+  .voucher-perforation {
+    background-image: radial-gradient(circle, var(--background) 4px, transparent 4.5px);
+    background-size: 14px 14px;
+    background-position: 7px 0;
+  }
+  .voucher-perf-side {
+    background-image: radial-gradient(circle, var(--background) 4px, transparent 4.5px);
+    background-size: 14px 14px;
+    background-position: 0 7px;
+  }
+  .gold-foil {
+    background: linear-gradient(135deg,
+      oklch(0.95 0.10 92) 0%,
+      oklch(0.78 0.18 88) 25%,
+      oklch(0.62 0.14 80) 50%,
+      oklch(0.92 0.15 92) 75%,
+      oklch(0.62 0.14 80) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 1px 0 oklch(0 0 0 / 0.4));
+  }
+  .neon-green {
+    color: oklch(0.85 0.22 152);
+    text-shadow:
+      0 0 6px oklch(0.85 0.22 152 / 0.7),
+      0 0 18px oklch(0.65 0.22 152 / 0.5);
+  }
+  .neon-green-border {
+    box-shadow:
+      0 0 0 1px oklch(0.85 0.22 152 / 0.55),
+      0 0 14px -2px oklch(0.85 0.22 152 / 0.6);
+  }
+}
