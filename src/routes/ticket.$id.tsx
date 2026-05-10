@@ -40,7 +40,7 @@ function TicketPage() {
 
   async function loadBet() {
     const { data, error } = await supabase.from("bets")
-      .select("*, bet_selections(*, matches:match_id(name, status, home_score, away_score, home_team:home_team_id(name,logo_url), away_team:away_team_id(name,logo_url)), markets:market_id(name))")
+      .select("*, bet_selections(*, matches!match_id(name, status, home_score, away_score, home_team:teams!home_team_id(name,logo_url), away_team:teams!away_team_id(name,logo_url)), markets!market_id(name))")
       .eq("id", id).maybeSingle();
     if (error) { console.error("loadBet error", error); return; }
     if (!data) return;

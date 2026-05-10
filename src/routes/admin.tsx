@@ -475,7 +475,7 @@ function MatchesPanel() {
   const [wizard, setWizard] = useState(false);
 
   async function load() {
-    const { data } = await supabase.from("matches").select("*, home_team:home_team_id(name,logo_url), away_team:away_team_id(name,logo_url)").order("start_time", { ascending: false });
+    const { data } = await supabase.from("matches").select("*, home_team:teams!home_team_id(name,logo_url), away_team:teams!away_team_id(name,logo_url)").order("start_time", { ascending: false });
     setMatches(data ?? []);
   }
   useEffect(() => { load(); }, []);
@@ -544,10 +544,10 @@ function MatchesPanel() {
 
 async function settleBetsForMatch(matchId: string, winnerTeamId: string | null) {
   // Get all bet selections for this match
-  const { data: sels } = await supabase.from("bet_selections").select("*, markets:market_id(name), odds:odd_id(label)").eq("match_id", matchId);
+  const { data: sels } = await supabase.from("bet_selections").select("*, markets!market_id(name), odds!odd_id(label)").eq("match_id", matchId);
   if (!sels || sels.length === 0) return;
   // Get team names for label comparison
-  const { data: match } = await supabase.from("matches").select("home_team:home_team_id(name), away_team:away_team_id(name)").eq("id", matchId).single() as any;
+  const { data: match } = await supabase.from("matches").select("home_team:teams!home_team_id(name), away_team:teams!away_team_id(name)").eq("id", matchId).single() as any;
   const winnerLabel = winnerTeamId === null ? "Draw" : (match?.home_team?.name && winnerTeamId === (await supabase.from("matches").select("home_team_id").eq("id", matchId).single()).data?.home_team_id ? match.home_team.name : match?.away_team?.name);
   for (const s of sels) {
     const result = (s as any).odds?.label === winnerLabel ? "won" : "lost";
@@ -1081,7 +1081,7 @@ function TicketsPanel() {
   const [active, setActive] = useState<any | null>(null);
   const confirm = useConfirm();
   async function load() {
-    const { data } = await supabase.from("support_tickets").select("*, profiles:user_id(full_name,email)").order("created_at", { ascending: false }).limit(200);
+    const { data } = await supabase.from("support_tickets").select("*, profiles!user_id(full_name,email)").order("created_at", { ascending: false }).limit(200);
     setTickets(data ?? []);
   }
   useEffect(() => {
@@ -1135,7 +1135,7 @@ function AdminTicketDialog({ ticket, onClose }: { ticket: any; onClose: () => vo
   const fileRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
   async function load() {
-    const { data } = await supabase.from("ticket_messages").select("*, profiles:user_id(full_name,email)").eq("ticket_id", ticket.id).order("created_at", { ascending: true });
+    const { data } = await supabase.from("ticket_messages").select("*, profiles!user_id(full_name,email)").eq("ticket_id", ticket.id).order("created_at", { ascending: true });
     setMsgs(data ?? []);
   }
   useEffect(() => {
@@ -1684,7 +1684,7 @@ function BetTrackerPanel() {
 
   async function load() {
     let qb = supabase.from("bets")
-      .select("*, profiles:user_id(full_name,email,ingame_name), bet_selections(*, matches:match_id(name))")
+      .select("*, profiles!user_id(full_name,email,ingame_name), bet_selections(*, matches!match_id(name))")
       .order("created_at", { ascending: false }).limit(200);
     if (filter !== "all") qb = qb.eq("status", filter as any);
     const { data } = await qb;
@@ -1804,8 +1804,8 @@ function TasksAchievementsPanel() {
   async function load() {
     const [{ data: u }, { data: t }, { data: a }] = await Promise.all([
       supabase.from("profiles").select("id,full_name,email").order("created_at", { ascending: false }).limit(500),
-      supabase.from("user_tasks").select("*, profiles:user_id(full_name,email)").order("created_at", { ascending: false }).limit(200),
-      supabase.from("user_achievements").select("*, profiles:user_id(full_name,email)").order("awarded_at", { ascending: false }).limit(200),
+      supabase.from("user_tasks").select("*, profiles!user_id(full_name,email)").order("created_at", { ascending: false }).limit(200),
+      supabase.from("user_achievements").select("*, profiles!user_id(full_name,email)").order("awarded_at", { ascending: false }).limit(200),
     ]);
     setUsers(u ?? []); setTasks(t ?? []); setAchievements(a ?? []);
   }
@@ -1862,7 +1862,7 @@ function PromoRequestsPanel() {
   const [filter, setFilter] = useState<string>("pending");
   async function load() {
     let qb = supabase.from("promo_code_requests")
-      .select("*, profiles:user_id(full_name,email)")
+      .select("*, profiles!user_id(full_name,email)")
       .order("created_at", { ascending: false });
     if (filter !== "all") qb = qb.eq("status", filter);
     const { data } = await qb;
