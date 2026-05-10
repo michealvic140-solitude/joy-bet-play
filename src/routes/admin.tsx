@@ -15,6 +15,7 @@ import {
   Calendar, Tag, Image as ImageIcon, BarChart3, History, Send, Plus, Trash2, Pencil, ChevronRight, ChevronLeft, Wallet, ListOrdered, Sparkles, ClipboardList, Lock, Pause, Play, Check, X, MessageSquare, Eye, RotateCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { GangLogo } from "@/components/GangLogo";
 import { useAuth, ROLE_LABELS, type AppRole } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { fetchTeams } from "@/lib/queries";
@@ -135,7 +136,19 @@ function AdminPage() {
 async function logAudit(action: string, target_type: string, target_id?: string, metadata?: any) {
   const u = (await supabase.auth.getUser()).data.user;
   if (!u) return;
-  await supabase.from("audit_logs").insert({ actor_id: u.id, action, target_type, target_id, metadata: metadata ?? {} });
+  // Best-effort enrichment: where (route, user agent), and target user resolution
+  const enriched: any = {
+    ...(metadata ?? {}),
+    actor_email: u.email ?? null,
+    user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    route: typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
+    origin: typeof window !== "undefined" ? window.location.origin : null,
+    locale: typeof navigator !== "undefined" ? navigator.language : null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timestamp_iso: new Date().toISOString(),
+  };
+  if (target_type === "user" && target_id) enriched.target_user_id = target_id;
+  await supabase.from("audit_logs").insert({ actor_id: u.id, action, target_type, target_id, metadata: enriched });
 }
 
 function AdminTab({ icon: Icon, label, count = 0 }: { icon: any; label: string; count?: number }) {
