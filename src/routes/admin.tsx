@@ -1449,37 +1449,148 @@ function NotifyPanel() {
 /* ============================ AUDIT ============================ */
 function AuditPanel() {
   const [logs, setLogs] = useState<any[]>([]);
-  const [actors, setActors] = useState<Record<string, any>>({});
+  const [profiles, setProfiles] = useState<Record<string, any>>({});
+  const [q, setQ] = useState("");
+  const [actionFilter, setActionFilter] = useState<string>("all");
+
   useEffect(() => {
-    supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200).then(async ({ data }) => {
+    supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500).then(async ({ data }) => {
       setLogs(data ?? []);
-      const ids = Array.from(new Set((data ?? []).map((x: any) => x.actor_id).filter(Boolean)));
-      if (ids.length) {
-        const { data: p } = await supabase.from("profiles").select("id,full_name").in("id", ids);
-        const m: Record<string, any> = {}; (p ?? []).forEach((x: any) => { m[x.id] = x; }); setActors(m);
+      const ids = new Set<string>();
+      (data ?? []).forEach((x: any) => {
+        if (x.actor_id) ids.add(x.actor_id);
+        const tu = x.metadata?.target_user_id;
+        if (tu) ids.add(tu);
+        if (x.target_type === "user" && x.target_id) ids.add(x.target_id);
+      });
+      if (ids.size) {
+        const { data: p } = await supabase.from("profiles").select("id,full_name,email").in("id", Array.from(ids));
+        const m: Record<string, any> = {};
+        (p ?? []).forEach((x: any) => { m[x.id] = x; });
+        setProfiles(m);
       }
     });
   }, []);
+
+  const filtered = useMemo(() => {
+    return logs.filter((l) => {
+      if (actionFilter !== "all" && !l.action.startsWith(actionFilter)) return false;
+      if (!q) return true;
+      const actor = profiles[l.actor_id]?.full_name ?? "";
+      const targetUserId = l.metadata?.target_user_id ?? (l.target_type === "user" ? l.target_id : null);
+      const target = targetUserId ? (profiles[targetUserId]?.full_name ?? "") : "";
+      const hay = `${l.action} ${l.target_type} ${l.target_id ?? ""} ${actor} ${target} ${JSON.stringify(l.metadata ?? {})}`.toLowerCase();
+      return hay.includes(q.toLowerCase());
+    });
+  }, [logs, q, actionFilter, profiles]);
+
+  const actionPrefixes = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach((l) => set.add(l.action.split("_")[0]));
+    return Array.from(set).sort();
+  }, [logs]);
+
   return (
-    <div className="space-y-1">
-      {logs.length === 0 && <p className="text-sm text-muted-foreground">No audit entries.</p>}
-      {logs.map((l) => (
-        <Card key={l.id} className="glass p-3 text-sm flex items-start justify-between gap-2 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="font-bold">
-              <span className="text-primary">{actors[l.actor_id]?.full_name ?? "System"}</span>{" "}
-              <span className="text-muted-foreground">{humanize(l.action)}</span>{" "}
-              <span className="text-muted-foreground">on</span> <span>{l.target_type}</span>
-            </div>
-            {l.metadata && Object.keys(l.metadata).length > 0 && (
-              <div className="text-xs text-muted-foreground mt-1">
-                {Object.entries(l.metadata).map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ")}
+    <div className="space-y-3">
+      <Card className="glass-strong p-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground"><Filter className="h-3 w-3" />Filter</div>
+        <Input placeholder="Search action, user, target, metadata…" value={q} onChange={(e) => setQ(e.target.value)} className="w-64 h-9" />
+        <Select value={actionFilter} onValueChange={setActionFilter}>
+          <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All actions</SelectItem>
+            {actionPrefixes.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Badge variant="outline" className="ml-auto">{filtered.length} of {logs.length}</Badge>
+      </Card>
+
+      {filtered.length === 0 && <p className="text-sm text-muted-foreground">No audit entries match.</p>}
+      <div className="space-y-2">
+        {filtered.map((l) => {
+          const actor = profiles[l.actor_id];
+          const meta = l.metadata ?? {};
+          const targetUserId = meta.target_user_id ?? (l.target_type === "user" ? l.target_id : null);
+          const targetUser = targetUserId ? profiles[targetUserId] : null;
+          const ts = new Date(l.created_at);
+          const action = humanize(l.action);
+          const tone = /(ban|revoke|deny|delete|wipe|restrict|mute)/i.test(l.action) ? "destructive"
+                     : /(grant|approve|credit|create|add|won)/i.test(l.action) ? "emerald"
+                     : "primary";
+          const toneCls = tone === "destructive" ? "border-destructive/40 bg-destructive/5"
+                        : tone === "emerald" ? "border-emerald-400/30 bg-emerald-500/5"
+                        : "border-primary/30 bg-primary/5";
+          const dotCls = tone === "destructive" ? "bg-destructive" : tone === "emerald" ? "bg-emerald-400" : "bg-primary";
+          // Strip enrichment keys from "extra" rendering
+          const standardKeys = new Set(["actor_email", "user_agent", "route", "origin", "locale", "timezone", "timestamp_iso", "target_user_id"]);
+          const extras = Object.entries(meta).filter(([k]) => !standardKeys.has(k));
+          return (
+            <Card key={l.id} className={`glass p-4 border ${toneCls}`}>
+              <div className="flex items-start gap-3">
+                <span className={`mt-1 h-2.5 w-2.5 rounded-full shrink-0 ${dotCls} shadow-[0_0_10px_currentColor]`} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-bold text-primary">{actor?.full_name ?? "System"}</span>
+                    <span className="text-muted-foreground">{action}</span>
+                    <span className="text-muted-foreground">on</span>
+                    <Badge variant="outline" className="capitalize">{l.target_type ?? "—"}</Badge>
+                    {targetUser && (
+                      <>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-bold text-emerald-300">{targetUser.full_name}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {actor?.email && <Detail icon={Users} label="By"><span className="font-mono">{actor.email}</span></Detail>}
+                    {targetUser?.email && <Detail icon={Users} label="To"><span className="font-mono">{targetUser.email}</span></Detail>}
+                    {l.target_id && l.target_type !== "user" && <Detail icon={Tag} label="Target ID"><span className="font-mono break-all">{l.target_id}</span></Detail>}
+                    {meta.route && <Detail icon={MapPin} label="From route"><span className="font-mono">{meta.route}</span></Detail>}
+                    {meta.origin && <Detail icon={Globe} label="Origin"><span className="font-mono">{meta.origin}</span></Detail>}
+                    {meta.user_agent && <Detail icon={Smartphone} label="Device"><span className="font-mono truncate inline-block max-w-[260px] align-bottom">{summariseUA(meta.user_agent)}</span></Detail>}
+                    <Detail icon={Clock} label="When"><span title={ts.toISOString()}>{ts.toLocaleString()} <span className="text-muted-foreground">({timeAgo(ts)})</span></span></Detail>
+                    {meta.timezone && <Detail icon={Globe} label="Timezone">{meta.timezone}</Detail>}
+                  </div>
+                  {extras.length > 0 && (
+                    <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Action details</div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {extras.map(([k, v]) => (
+                          <div key={k}>
+                            <span className="text-muted-foreground">{humanize(k)}:</span>{" "}
+                            <span className="font-mono">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-          <div className="text-[10px] text-muted-foreground whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</div>
-        </Card>
-      ))}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function summariseUA(ua: string) {
+  const m = ua.match(/(Chrome|Firefox|Safari|Edge|OPR|Edg)\/[\d.]+/);
+  const os = ua.match(/(Windows|Mac OS X|Android|iPhone|Linux|iPad)[^;)]*/);
+  return [m?.[0], os?.[0]].filter(Boolean).join(" · ") || ua.slice(0, 60);
+}
+function timeAgo(d: Date) {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+function Detail({ icon: Icon, label, children }: { icon: any; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+      <span className="text-muted-foreground">{label}:</span>
+      <span className="truncate">{children}</span>
     </div>
   );
 }
