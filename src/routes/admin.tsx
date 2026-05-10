@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Switch } from "@/components/ui/switch";
 import {
   Shield, Users, Trophy, Coins, Megaphone, Settings as SettingsIcon, Ticket, AlertTriangle,
-  Calendar, Tag, Image as ImageIcon, BarChart3, History, Send, Plus, Trash2, Pencil, ChevronRight, ChevronLeft, Wallet, ListOrdered, Sparkles, ClipboardList, Lock, Pause, Play, Check, X, MessageSquare, Eye, RotateCw,
+  Calendar, Tag, Image as ImageIcon, BarChart3, History, Send, Plus, Trash2, Pencil, ChevronRight, ChevronLeft, Wallet, ListOrdered, Sparkles, ClipboardList, Lock, Pause, Play, Check, X, MessageSquare, Eye, RotateCw, Copy, Globe, MapPin, Smartphone, Clock, Filter,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, ROLE_LABELS, type AppRole } from "@/contexts/AuthContext";
@@ -135,7 +135,19 @@ function AdminPage() {
 async function logAudit(action: string, target_type: string, target_id?: string, metadata?: any) {
   const u = (await supabase.auth.getUser()).data.user;
   if (!u) return;
-  await supabase.from("audit_logs").insert({ actor_id: u.id, action, target_type, target_id, metadata: metadata ?? {} });
+  // Best-effort enrichment: where (route, user agent), and target user resolution
+  const enriched: any = {
+    ...(metadata ?? {}),
+    actor_email: u.email ?? null,
+    user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+    route: typeof window !== "undefined" ? window.location.pathname + window.location.search : null,
+    origin: typeof window !== "undefined" ? window.location.origin : null,
+    locale: typeof navigator !== "undefined" ? navigator.language : null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timestamp_iso: new Date().toISOString(),
+  };
+  if (target_type === "user" && target_id) enriched.target_user_id = target_id;
+  await supabase.from("audit_logs").insert({ actor_id: u.id, action, target_type, target_id, metadata: enriched });
 }
 
 function AdminTab({ icon: Icon, label, count = 0 }: { icon: any; label: string; count?: number }) {
@@ -392,79 +404,190 @@ function UserEditDialog({ user, roles, onClose }: { user: any; roles: string[]; 
     toast.success(`− ${role}`); onClose();
   }
 
+  const wonCount = bets.filter((b: any) => b.status === "won").length;
+  const initials = (user.full_name ?? "U").split(" ").map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
+  const userIdShort = String(user.id).replace(/-/g, "").slice(0, 9);
+  function copyId() { navigator.clipboard.writeText(user.id); toast.success("User ID copied"); }
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Manage {user.full_name}</DialogTitle>
-        </DialogHeader>
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="tokens">Tokens</TabsTrigger>
-            <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="actions">Actions</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
-          <TabsContent value="profile" className="space-y-2 mt-3">
-            <Input placeholder="Full name" value={form.full_name ?? ""} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-            <Input placeholder="Phone" value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <Input placeholder="Discord" value={form.discord_username ?? ""} onChange={(e) => setForm({ ...form, discord_username: e.target.value })} />
-            <Input placeholder="Country" value={form.country ?? ""} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-            <Input placeholder="Gang name" value={form.gang_name ?? ""} onChange={(e) => setForm({ ...form, gang_name: e.target.value })} />
-            <Button className="btn-luxury" onClick={saveProfile}>Save profile</Button>
-          </TabsContent>
-          <TabsContent value="tokens" className="space-y-3 mt-3">
-            <div className="text-sm">Current balance: <span className="font-bold text-primary">{(user.token_balance ?? 0).toLocaleString()}</span></div>
-            <Input type="number" placeholder="Delta (use negative to remove)" value={tokenDelta || ""} onChange={(e) => setTokenDelta(Number(e.target.value))} />
-            <Input placeholder="Reason (required)" value={tokenReason} onChange={(e) => setTokenReason(e.target.value)} />
-            <Button className="btn-luxury" onClick={applyTokens}>Apply</Button>
-          </TabsContent>
-          <TabsContent value="roles" className="space-y-3 mt-3">
-            <div className="flex flex-wrap gap-1">
-              {roles.map((r) => (
-                <Badge key={r} variant="outline">{ROLE_LABELS[r as AppRole]} <button onClick={() => removeRole(r)} className="ml-1 text-destructive">×</button></Badge>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0 border-primary/30 bg-gradient-to-b from-card to-background">
+        <div className="relative px-6 pt-10 pb-6">
+          {/* Avatar with golden glow */}
+          <div className="relative mx-auto h-24 w-24 -mt-4">
+            <div className="absolute inset-[-10px] rounded-3xl blur-2xl bg-[radial-gradient(circle,oklch(0.82_0.17_90/0.55),transparent_70%)]" />
+            <div className="relative h-24 w-24 rounded-3xl border-2 border-primary/70 bg-card grid place-items-center shadow-[0_0_30px_-4px_oklch(0.82_0.17_90/0.7)]">
+              {user.avatar_url
+                ? <img src={user.avatar_url} alt="" className="h-full w-full rounded-3xl object-cover" />
+                : <UserSilhouette />}
+            </div>
+          </div>
+
+          <div className="mt-3 flex justify-center gap-2 flex-wrap">
+            <span className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border ${user.is_banned ? "border-destructive/40 text-destructive bg-destructive/10" : "border-emerald-400/40 text-emerald-300 bg-emerald-500/10"}`}>
+              {user.is_banned ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+              {user.is_banned ? "Banned" : "Active"}
+            </span>
+            <span className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-primary/40 text-primary bg-primary/10">
+              <Trophy className="h-3 w-3" />{wonCount} Matches Won
+            </span>
+          </div>
+
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-display tracking-wider">Manage {user.full_name}</DialogTitle>
+          </DialogHeader>
+
+          <Tabs value={tab} onValueChange={setTab} className="mt-4">
+            <TabsList className="bg-transparent w-full justify-start gap-4 border-b border-border rounded-none p-0 h-auto">
+              {[
+                ["profile", "Profile"],
+                ["tokens", "Tokens"],
+                ["roles", "Roles"],
+                ["actions", "Actions"],
+                ["history", "History"],
+              ].map(([v, l]) => (
+                <TabsTrigger
+                  key={v}
+                  value={v}
+                  className="relative px-1 pb-2 rounded-none bg-transparent text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:after:content-[''] data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-px data-[state=active]:after:h-0.5 data-[state=active]:after:bg-gradient-gold"
+                >{l}</TabsTrigger>
               ))}
-            </div>
-            <Select onValueChange={(v) => addRole(v as AppRole)}>
-              <SelectTrigger><SelectValue placeholder="Add role…" /></SelectTrigger>
-            <SelectContent>{(["viewer", "shooter", "gang_leader", "registered", "sponsor", "moderator", "admin"] as AppRole[]).map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}</SelectContent>
-            </Select>
-          </TabsContent>
-          <TabsContent value="actions" className="space-y-3 mt-3">
-            <Textarea placeholder="Reason (required for restrictive actions)" value={actionReason} onChange={(e) => setActionReason(e.target.value)} />
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant={user.is_banned ? "outline" : "destructive"} onClick={() => flagAction("is_banned", !user.is_banned, "ban_reason")}>{user.is_banned ? "Unban" : "Ban"}</Button>
-              <Button variant={user.is_muted ? "outline" : "destructive"} onClick={() => flagAction("is_muted", !user.is_muted, "mute_reason")}>{user.is_muted ? "Unmute chat" : "Mute chat"}</Button>
-              <Button variant={user.is_restricted ? "outline" : "destructive"} onClick={() => flagAction("is_restricted", !user.is_restricted, "restrict_reason")}>{user.is_restricted ? "Allow betting" : "Restrict betting"}</Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="history" className="space-y-3 mt-3">
-            <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Recent bets</div>
-              {bets.length === 0 && <div className="text-xs text-muted-foreground">None.</div>}
-              {bets.map((b) => (
-                <div key={b.id} className="flex justify-between text-xs py-1 border-b border-border/50">
-                  <span>{b.tracking_id} · {b.status}</span>
-                  <span>{b.stake} → {b.potential_payout}</span>
+            </TabsList>
+
+            <TabsContent value="profile" className="space-y-4 mt-5">
+              <FieldLuxe label="Display Name">
+                <Input value={form.full_name ?? ""} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="User ID">
+                <div className="flex gap-2">
+                  <Input readOnly value={userIdShort} className="font-mono" />
+                  <Button onClick={copyId} className="btn-luxury shrink-0"><Copy className="h-4 w-4 mr-1" />Copy</Button>
                 </div>
-              ))}
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Token transactions</div>
-              {tx.length === 0 && <div className="text-xs text-muted-foreground">None.</div>}
-              {tx.map((t) => (
-                <div key={t.id} className="flex justify-between text-xs py-1 border-b border-border/50">
-                  <span>{t.kind} · {t.description}</span>
-                  <span className={t.amount > 0 ? "text-primary" : "text-destructive"}>{t.amount > 0 ? "+" : ""}{t.amount}</span>
+              </FieldLuxe>
+              <FieldLuxe label="Email / Login">
+                <Input value={form.email ?? ""} readOnly className="bg-muted/40" />
+              </FieldLuxe>
+              <FieldLuxe label="Phone">
+                <Input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="Discord">
+                <Input value={form.discord_username ?? ""} onChange={(e) => setForm({ ...form, discord_username: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="Country">
+                <Input value={form.country ?? ""} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+              </FieldLuxe>
+              <FieldLuxe label="Gang Name">
+                <Input value={form.gang_name ?? ""} onChange={(e) => setForm({ ...form, gang_name: e.target.value })} />
+              </FieldLuxe>
+              <Button className="btn-luxury w-full h-12 text-base font-bold" onClick={saveProfile}>Save Profile</Button>
+            </TabsContent>
+
+            <TabsContent value="tokens" className="space-y-4 mt-5">
+              <Card className="glass p-4 text-center">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Current Balance</div>
+                <div className="text-3xl font-black gradient-gold-text mt-1">{(user.token_balance ?? 0).toLocaleString()}</div>
+              </Card>
+              <FieldLuxe label="Delta (negative to revoke)">
+                <Input type="number" value={tokenDelta || ""} onChange={(e) => setTokenDelta(Number(e.target.value))} />
+              </FieldLuxe>
+              <FieldLuxe label="Reason (required)">
+                <Input value={tokenReason} onChange={(e) => setTokenReason(e.target.value)} />
+              </FieldLuxe>
+              <Button className="btn-luxury w-full h-11" onClick={applyTokens}>Apply</Button>
+            </TabsContent>
+
+            <TabsContent value="roles" className="space-y-4 mt-5">
+              <div className="flex flex-wrap gap-2 min-h-[40px]">
+                {roles.length === 0 && <div className="text-xs text-muted-foreground">No roles assigned.</div>}
+                {roles.map((r) => (
+                  <Badge key={r} variant="outline" className="border-primary/40 text-primary bg-primary/10 px-3 py-1">
+                    {ROLE_LABELS[r as AppRole]}
+                    <button onClick={() => removeRole(r)} className="ml-2 text-destructive hover:scale-110">×</button>
+                  </Badge>
+                ))}
+              </div>
+              <FieldLuxe label="Add role">
+                <Select onValueChange={(v) => addRole(v as AppRole)}>
+                  <SelectTrigger><SelectValue placeholder="Add role…" /></SelectTrigger>
+                  <SelectContent>
+                    {(["viewer", "shooter", "gang_leader", "registered", "sponsor", "moderator", "admin"] as AppRole[]).map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FieldLuxe>
+            </TabsContent>
+
+            <TabsContent value="actions" className="space-y-4 mt-5">
+              <FieldLuxe label="Reason (required for restrictive actions)">
+                <Textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} rows={3} />
+              </FieldLuxe>
+              <div className="grid grid-cols-1 gap-2">
+                <Button variant={user.is_banned ? "outline" : "destructive"} className="h-11 justify-start" onClick={() => flagAction("is_banned", !user.is_banned, "ban_reason")}>
+                  <Lock className="h-4 w-4 mr-2" />{user.is_banned ? "Unban user" : "Ban user from platform"}
+                </Button>
+                <Button variant={user.is_muted ? "outline" : "destructive"} className="h-11 justify-start" onClick={() => flagAction("is_muted", !user.is_muted, "mute_reason")}>
+                  <MessageSquare className="h-4 w-4 mr-2" />{user.is_muted ? "Unmute chat" : "Mute in chat"}
+                </Button>
+                <Button variant={user.is_restricted ? "outline" : "destructive"} className="h-11 justify-start" onClick={() => flagAction("is_restricted", !user.is_restricted, "restrict_reason")}>
+                  <AlertTriangle className="h-4 w-4 mr-2" />{user.is_restricted ? "Allow betting" : "Restrict betting"}
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-5 mt-5">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Recent bets</div>
+                {bets.length === 0 && <div className="text-xs text-muted-foreground">None yet.</div>}
+                <div className="space-y-1">
+                  {bets.map((b) => (
+                    <div key={b.id} className="glass p-2 rounded-lg flex justify-between text-xs items-center">
+                      <span className="font-mono truncate">{b.tracking_id}</span>
+                      <span className="capitalize text-muted-foreground">{b.status}</span>
+                      <span className="font-bold">{Number(b.stake).toLocaleString()} → <span className="text-primary">{Number(b.potential_payout).toLocaleString()}</span></span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-        <DialogFooter><Button variant="outline" onClick={onClose}>Close</Button></DialogFooter>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Token transactions</div>
+                {tx.length === 0 && <div className="text-xs text-muted-foreground">None.</div>}
+                <div className="space-y-1">
+                  {tx.map((t) => (
+                    <div key={t.id} className="glass p-2 rounded-lg flex justify-between text-xs items-center">
+                      <span className="capitalize text-muted-foreground">{t.kind}</span>
+                      <span className="truncate flex-1 px-2">{t.description}</span>
+                      <span className={`font-bold ${t.amount > 0 ? "text-emerald-300" : "text-destructive"}`}>{t.amount > 0 ? "+" : ""}{Number(t.amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+        <DialogFooter className="px-6 pb-4">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FieldLuxe({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function UserSilhouette() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-12 w-12 text-muted-foreground/70" fill="currentColor" aria-hidden>
+      <circle cx="32" cy="22" r="11" />
+      <path d="M10 56c0-12 10-20 22-20s22 8 22 20v4H10z" />
+    </svg>
   );
 }
 
@@ -1325,37 +1448,148 @@ function NotifyPanel() {
 /* ============================ AUDIT ============================ */
 function AuditPanel() {
   const [logs, setLogs] = useState<any[]>([]);
-  const [actors, setActors] = useState<Record<string, any>>({});
+  const [profiles, setProfiles] = useState<Record<string, any>>({});
+  const [q, setQ] = useState("");
+  const [actionFilter, setActionFilter] = useState<string>("all");
+
   useEffect(() => {
-    supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200).then(async ({ data }) => {
+    supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(500).then(async ({ data }) => {
       setLogs(data ?? []);
-      const ids = Array.from(new Set((data ?? []).map((x: any) => x.actor_id).filter(Boolean)));
-      if (ids.length) {
-        const { data: p } = await supabase.from("profiles").select("id,full_name").in("id", ids);
-        const m: Record<string, any> = {}; (p ?? []).forEach((x: any) => { m[x.id] = x; }); setActors(m);
+      const ids = new Set<string>();
+      (data ?? []).forEach((x: any) => {
+        if (x.actor_id) ids.add(x.actor_id);
+        const tu = x.metadata?.target_user_id;
+        if (tu) ids.add(tu);
+        if (x.target_type === "user" && x.target_id) ids.add(x.target_id);
+      });
+      if (ids.size) {
+        const { data: p } = await supabase.from("profiles").select("id,full_name,email").in("id", Array.from(ids));
+        const m: Record<string, any> = {};
+        (p ?? []).forEach((x: any) => { m[x.id] = x; });
+        setProfiles(m);
       }
     });
   }, []);
+
+  const filtered = useMemo(() => {
+    return logs.filter((l) => {
+      if (actionFilter !== "all" && !l.action.startsWith(actionFilter)) return false;
+      if (!q) return true;
+      const actor = profiles[l.actor_id]?.full_name ?? "";
+      const targetUserId = l.metadata?.target_user_id ?? (l.target_type === "user" ? l.target_id : null);
+      const target = targetUserId ? (profiles[targetUserId]?.full_name ?? "") : "";
+      const hay = `${l.action} ${l.target_type} ${l.target_id ?? ""} ${actor} ${target} ${JSON.stringify(l.metadata ?? {})}`.toLowerCase();
+      return hay.includes(q.toLowerCase());
+    });
+  }, [logs, q, actionFilter, profiles]);
+
+  const actionPrefixes = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach((l) => set.add(l.action.split("_")[0]));
+    return Array.from(set).sort();
+  }, [logs]);
+
   return (
-    <div className="space-y-1">
-      {logs.length === 0 && <p className="text-sm text-muted-foreground">No audit entries.</p>}
-      {logs.map((l) => (
-        <Card key={l.id} className="glass p-3 text-sm flex items-start justify-between gap-2 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="font-bold">
-              <span className="text-primary">{actors[l.actor_id]?.full_name ?? "System"}</span>{" "}
-              <span className="text-muted-foreground">{humanize(l.action)}</span>{" "}
-              <span className="text-muted-foreground">on</span> <span>{l.target_type}</span>
-            </div>
-            {l.metadata && Object.keys(l.metadata).length > 0 && (
-              <div className="text-xs text-muted-foreground mt-1">
-                {Object.entries(l.metadata).map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ")}
+    <div className="space-y-3">
+      <Card className="glass-strong p-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground"><Filter className="h-3 w-3" />Filter</div>
+        <Input placeholder="Search action, user, target, metadata…" value={q} onChange={(e) => setQ(e.target.value)} className="w-64 h-9" />
+        <Select value={actionFilter} onValueChange={setActionFilter}>
+          <SelectTrigger className="w-44 h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All actions</SelectItem>
+            {actionPrefixes.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Badge variant="outline" className="ml-auto">{filtered.length} of {logs.length}</Badge>
+      </Card>
+
+      {filtered.length === 0 && <p className="text-sm text-muted-foreground">No audit entries match.</p>}
+      <div className="space-y-2">
+        {filtered.map((l) => {
+          const actor = profiles[l.actor_id];
+          const meta = l.metadata ?? {};
+          const targetUserId = meta.target_user_id ?? (l.target_type === "user" ? l.target_id : null);
+          const targetUser = targetUserId ? profiles[targetUserId] : null;
+          const ts = new Date(l.created_at);
+          const action = humanize(l.action);
+          const tone = /(ban|revoke|deny|delete|wipe|restrict|mute)/i.test(l.action) ? "destructive"
+                     : /(grant|approve|credit|create|add|won)/i.test(l.action) ? "emerald"
+                     : "primary";
+          const toneCls = tone === "destructive" ? "border-destructive/40 bg-destructive/5"
+                        : tone === "emerald" ? "border-emerald-400/30 bg-emerald-500/5"
+                        : "border-primary/30 bg-primary/5";
+          const dotCls = tone === "destructive" ? "bg-destructive" : tone === "emerald" ? "bg-emerald-400" : "bg-primary";
+          // Strip enrichment keys from "extra" rendering
+          const standardKeys = new Set(["actor_email", "user_agent", "route", "origin", "locale", "timezone", "timestamp_iso", "target_user_id"]);
+          const extras = Object.entries(meta).filter(([k]) => !standardKeys.has(k));
+          return (
+            <Card key={l.id} className={`glass p-4 border ${toneCls}`}>
+              <div className="flex items-start gap-3">
+                <span className={`mt-1 h-2.5 w-2.5 rounded-full shrink-0 ${dotCls} shadow-[0_0_10px_currentColor]`} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-bold text-primary">{actor?.full_name ?? "System"}</span>
+                    <span className="text-muted-foreground">{action}</span>
+                    <span className="text-muted-foreground">on</span>
+                    <Badge variant="outline" className="capitalize">{l.target_type ?? "—"}</Badge>
+                    {targetUser && (
+                      <>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-bold text-emerald-300">{targetUser.full_name}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    {actor?.email && <Detail icon={Users} label="By"><span className="font-mono">{actor.email}</span></Detail>}
+                    {targetUser?.email && <Detail icon={Users} label="To"><span className="font-mono">{targetUser.email}</span></Detail>}
+                    {l.target_id && l.target_type !== "user" && <Detail icon={Tag} label="Target ID"><span className="font-mono break-all">{l.target_id}</span></Detail>}
+                    {meta.route && <Detail icon={MapPin} label="From route"><span className="font-mono">{meta.route}</span></Detail>}
+                    {meta.origin && <Detail icon={Globe} label="Origin"><span className="font-mono">{meta.origin}</span></Detail>}
+                    {meta.user_agent && <Detail icon={Smartphone} label="Device"><span className="font-mono truncate inline-block max-w-[260px] align-bottom">{summariseUA(meta.user_agent)}</span></Detail>}
+                    <Detail icon={Clock} label="When"><span title={ts.toISOString()}>{ts.toLocaleString()} <span className="text-muted-foreground">({timeAgo(ts)})</span></span></Detail>
+                    {meta.timezone && <Detail icon={Globe} label="Timezone">{meta.timezone}</Detail>}
+                  </div>
+                  {extras.length > 0 && (
+                    <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Action details</div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {extras.map(([k, v]) => (
+                          <div key={k}>
+                            <span className="text-muted-foreground">{humanize(k)}:</span>{" "}
+                            <span className="font-mono">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-          <div className="text-[10px] text-muted-foreground whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</div>
-        </Card>
-      ))}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function summariseUA(ua: string) {
+  const m = ua.match(/(Chrome|Firefox|Safari|Edge|OPR|Edg)\/[\d.]+/);
+  const os = ua.match(/(Windows|Mac OS X|Android|iPhone|Linux|iPad)[^;)]*/);
+  return [m?.[0], os?.[0]].filter(Boolean).join(" · ") || ua.slice(0, 60);
+}
+function timeAgo(d: Date) {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+function Detail({ icon: Icon, label, children }: { icon: any; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+      <span className="text-muted-foreground">{label}:</span>
+      <span className="truncate">{children}</span>
     </div>
   );
 }
@@ -1499,55 +1733,81 @@ function SettingsPanel() {
     setS({ ...s, popup_ad_image: url });
   }
   return (
-    <Card className="glass-strong p-4 space-y-3 max-w-2xl">
-      <div className="flex items-center justify-between">
-        <div><div className="font-bold">Maintenance mode</div><div className="text-xs text-muted-foreground">Blocks all non-admin pages.</div></div>
-        <Switch checked={!!s.maintenance_mode} onCheckedChange={(v) => setS({ ...s, maintenance_mode: v })} />
-      </div>
-      <Textarea placeholder="Maintenance message" value={s.maintenance_message ?? ""} onChange={(e) => setS({ ...s, maintenance_message: e.target.value })} />
-      <div>
-        <label className="text-xs text-muted-foreground">Hero tagline (top of home page)</label>
-        <Input placeholder="Season 4 · Live" value={s.hero_tagline ?? ""} onChange={(e) => setS({ ...s, hero_tagline: e.target.value })} />
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground">Minimum bet stake</label>
-        <Input type="number" placeholder="2000000" value={s.min_stake ?? 2000000} onChange={(e) => setS({ ...s, min_stake: Number(e.target.value) })} />
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground">Maximum payout (cash-out cap)</label>
-        <Input type="number" placeholder="100000000" value={s.max_payout ?? 100000000} onChange={(e) => setS({ ...s, max_payout: Number(e.target.value) })} />
-        <p className="text-[10px] text-muted-foreground mt-1">Any bet whose potential payout exceeds this is automatically capped at this amount.</p>
-      </div>
-      <Input placeholder="Contact email" value={s.contact_email ?? ""} onChange={(e) => setS({ ...s, contact_email: e.target.value })} />
-      <Input placeholder="Contact phone" value={s.contact_phone ?? ""} onChange={(e) => setS({ ...s, contact_phone: e.target.value })} />
-      <Input placeholder="Contact WhatsApp" value={s.contact_whatsapp ?? ""} onChange={(e) => setS({ ...s, contact_whatsapp: e.target.value })} />
-      <Textarea placeholder="About us" rows={3} value={s.about_us ?? ""} onChange={(e) => setS({ ...s, about_us: e.target.value })} />
-      <Textarea placeholder="Why trust us" rows={3} value={s.why_trust_us ?? ""} onChange={(e) => setS({ ...s, why_trust_us: e.target.value })} />
-      <Textarea placeholder="Terms & Conditions" rows={5} value={s.terms_content ?? ""} onChange={(e) => setS({ ...s, terms_content: e.target.value })} />
-
-      <div className="border-t border-border pt-3 space-y-2">
+    <div className="grid lg:grid-cols-2 gap-4 max-w-5xl">
+      <SettingsSection icon={Pause} title="Maintenance" subtitle="Block non-admin access and post a notice.">
         <div className="flex items-center justify-between">
-          <div className="font-bold">Pop-up Ad</div>
-          <Switch checked={!!s.popup_ad_active} onCheckedChange={(v) => setS({ ...s, popup_ad_active: v })} />
+          <div className="text-sm">Maintenance mode</div>
+          <Switch checked={!!s.maintenance_mode} onCheckedChange={(v) => setS({ ...s, maintenance_mode: v })} />
         </div>
-        <Select value={s.popup_ad_size ?? "large"} onValueChange={(v) => setS({ ...s, popup_ad_size: v })}>
-          <SelectTrigger><SelectValue placeholder="Size" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="large">Large</SelectItem>
-            <SelectItem value="xl">Extra Large</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadPopup(e.target.files[0])} />
-        {s.popup_ad_image && <img src={s.popup_ad_image} alt="" className="w-full max-h-48 object-contain rounded border border-border" />}
-        <Textarea placeholder="Popup text/HTML" rows={3} value={s.popup_ad_text ?? ""} onChange={(e) => setS({ ...s, popup_ad_text: e.target.value })} />
-        <Input placeholder="Popup link (optional)" value={s.popup_ad_link ?? ""} onChange={(e) => setS({ ...s, popup_ad_link: e.target.value })} />
-      </div>
+        <Textarea placeholder="Message shown to users" value={s.maintenance_message ?? ""} onChange={(e) => setS({ ...s, maintenance_message: e.target.value })} />
+      </SettingsSection>
 
-      <div className="flex gap-2 flex-wrap">
-        <Button className="btn-luxury" onClick={save}>Save settings</Button>
-        <Button variant="destructive" onClick={wipe}><AlertTriangle className="h-4 w-4 mr-1" />Emergency: wipe all tokens</Button>
+      <SettingsSection icon={Coins} title="Betting Limits" subtitle="Stake and payout guardrails.">
+        <FieldLuxe label="Minimum stake">
+          <Input type="number" value={s.min_stake ?? 2000000} onChange={(e) => setS({ ...s, min_stake: Number(e.target.value) })} />
+        </FieldLuxe>
+        <FieldLuxe label="Maximum payout cap">
+          <Input type="number" value={s.max_payout ?? 100000000} onChange={(e) => setS({ ...s, max_payout: Number(e.target.value) })} />
+        </FieldLuxe>
+        <p className="text-[10px] text-muted-foreground">Bets whose potential payout exceeds the cap are automatically clamped.</p>
+      </SettingsSection>
+
+      <SettingsSection icon={Sparkles} title="Brand" subtitle="Tagline shown across landing surfaces.">
+        <FieldLuxe label="Hero tagline"><Input value={s.hero_tagline ?? ""} onChange={(e) => setS({ ...s, hero_tagline: e.target.value })} placeholder="Season 4 · Live" /></FieldLuxe>
+      </SettingsSection>
+
+      <SettingsSection icon={MessageSquare} title="Contact" subtitle="Public-facing contact channels.">
+        <FieldLuxe label="Email"><Input value={s.contact_email ?? ""} onChange={(e) => setS({ ...s, contact_email: e.target.value })} /></FieldLuxe>
+        <FieldLuxe label="Phone"><Input value={s.contact_phone ?? ""} onChange={(e) => setS({ ...s, contact_phone: e.target.value })} /></FieldLuxe>
+        <FieldLuxe label="WhatsApp"><Input value={s.contact_whatsapp ?? ""} onChange={(e) => setS({ ...s, contact_whatsapp: e.target.value })} /></FieldLuxe>
+      </SettingsSection>
+
+      <SettingsSection icon={Megaphone} title="About & Trust" subtitle="Public-facing copy.">
+        <FieldLuxe label="About us"><Textarea rows={3} value={s.about_us ?? ""} onChange={(e) => setS({ ...s, about_us: e.target.value })} /></FieldLuxe>
+        <FieldLuxe label="Why trust us"><Textarea rows={3} value={s.why_trust_us ?? ""} onChange={(e) => setS({ ...s, why_trust_us: e.target.value })} /></FieldLuxe>
+        <FieldLuxe label="Terms & Conditions"><Textarea rows={6} value={s.terms_content ?? ""} onChange={(e) => setS({ ...s, terms_content: e.target.value })} /></FieldLuxe>
+      </SettingsSection>
+
+      <SettingsSection icon={ImageIcon} title="Pop-up Ad" subtitle="Promo modal across the platform." right={<Switch checked={!!s.popup_ad_active} onCheckedChange={(v) => setS({ ...s, popup_ad_active: v })} />}>
+        <FieldLuxe label="Size">
+          <Select value={s.popup_ad_size ?? "large"} onValueChange={(v) => setS({ ...s, popup_ad_size: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="large">Large</SelectItem>
+              <SelectItem value="xl">Extra Large</SelectItem>
+            </SelectContent>
+          </Select>
+        </FieldLuxe>
+        <FieldLuxe label="Image"><Input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadPopup(e.target.files[0])} /></FieldLuxe>
+        {s.popup_ad_image && <img src={s.popup_ad_image} alt="" className="w-full max-h-48 object-contain rounded border border-border" />}
+        <FieldLuxe label="Body text/HTML"><Textarea rows={3} value={s.popup_ad_text ?? ""} onChange={(e) => setS({ ...s, popup_ad_text: e.target.value })} /></FieldLuxe>
+        <FieldLuxe label="Link (optional)"><Input value={s.popup_ad_link ?? ""} onChange={(e) => setS({ ...s, popup_ad_link: e.target.value })} /></FieldLuxe>
+      </SettingsSection>
+
+      <Card className="glass-strong p-4 lg:col-span-2 flex flex-wrap items-center gap-2 justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Lock className="h-4 w-4" />Saving writes an audit log entry.</div>
+        <div className="flex gap-2 flex-wrap">
+          <Button className="btn-luxury h-11 px-6" onClick={save}><Check className="h-4 w-4 mr-1" />Save settings</Button>
+          <Button variant="destructive" className="h-11" onClick={wipe}><AlertTriangle className="h-4 w-4 mr-1" />Emergency: wipe all tokens</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function SettingsSection({ icon: Icon, title, subtitle, right, children }: { icon: any; title: string; subtitle?: string; right?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Card className="glass-strong p-5 space-y-3">
+      <div className="flex items-start gap-3">
+        <span className="h-10 w-10 rounded-xl bg-gradient-gold text-primary-foreground grid place-items-center shrink-0 shadow-gold"><Icon className="h-5 w-5" /></span>
+        <div className="flex-1">
+          <div className="font-bold text-base">{title}</div>
+          {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
+        </div>
+        {right}
       </div>
+      <div className="space-y-3">{children}</div>
     </Card>
   );
 }
