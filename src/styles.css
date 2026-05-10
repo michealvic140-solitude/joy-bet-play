@@ -113,11 +113,9 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     background-image: var(--gradient-glow), var(--gradient-luxury);
-    background-attachment: fixed;
     min-height: 100vh;
     min-height: 100dvh;
     overflow-x: hidden;
-    overscroll-behavior-y: none;
     -webkit-font-smoothing: antialiased;
     width: 100%;
   }
