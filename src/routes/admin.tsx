@@ -15,7 +15,6 @@ import {
   Calendar, Tag, Image as ImageIcon, BarChart3, History, Send, Plus, Trash2, Pencil, ChevronRight, ChevronLeft, Wallet, ListOrdered, Sparkles, ClipboardList, Lock, Pause, Play, Check, X, MessageSquare, Eye, RotateCw, Copy, Globe, MapPin, Smartphone, Clock, Filter,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { GangLogo } from "@/components/GangLogo";
 import { useAuth, ROLE_LABELS, type AppRole } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { fetchTeams } from "@/lib/queries";
