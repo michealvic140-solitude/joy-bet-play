@@ -71,21 +71,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "format-detection", content: "telephone=no" },
+      { name: "theme-color", content: "#0b0a14" },
+      { title: "LOMITA SHOOTERS LEAGUE LSL" },
+      { name: "description", content: "Register and start betting for your favorite gang" },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "LOMITA SHOOTERS LEAGUE LSL" },
+      { property: "og:description", content: "Register and start betting for your favorite gang" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "LOMITA SHOOTERS LEAGUE LSL" },
+      { name: "twitter:description", content: "Register and start betting for your favorite gang" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/BYQo4V4f1lQqjhKCpZPzcRqu1AS2/social-images/social-1778121108538-357075.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/BYQo4V4f1lQqjhKCpZPzcRqu1AS2/social-images/social-1778121108538-357075.webp" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/icon.svg" },
     ],
   }),
   shellComponent: RootShell,
@@ -108,12 +120,33 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { AuthProvider } from "@/contexts/AuthContext";
+import { BetSlipProvider } from "@/contexts/BetSlipContext";
+import { Toaster } from "@/components/ui/sonner";
+
+import { MaintenanceGate } from "@/components/MaintenanceGate";
+import { BanGate } from "@/components/BanGate";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
+import { PopupAd } from "@/components/PopupAd";
+import { BetSlipFab } from "@/components/BetSlip";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <AuthProvider>
+        <BetSlipProvider>
+          <ConfirmProvider>
+            <MaintenanceGate>
+              <Outlet />
+            </MaintenanceGate>
+            <BanGate />
+            <PopupAd />
+            <BetSlipFab />
+            <Toaster />
+          </ConfirmProvider>
+        </BetSlipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
