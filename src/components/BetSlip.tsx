@@ -69,6 +69,10 @@ function BetSlipDrawer({ open, onClose }: { open: boolean; onClose: () => void }
   async function place() {
     if (!user || !profile) { nav({ to: "/login" }); return; }
     if (selections.length === 0) return;
+    if (selections.length < 3) {
+      toast.error(`Add at least 3 selections to place a bet (you have ${selections.length}).`);
+      return;
+    }
     if (profile.is_restricted) { toast.error("Your account is restricted from betting."); return; }
     if (stake < minStake) { toast.error(`Minimum stake is ${minStake.toLocaleString()} tokens`); return; }
     if (stake > (profile.token_balance ?? 0)) { toast.error("Insufficient balance"); return; }
@@ -190,9 +194,9 @@ function BetSlipDrawer({ open, onClose }: { open: boolean; onClose: () => void }
             )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={clear} className="flex-1"><Trash2 className="h-4 w-4 mr-1" />Clear</Button>
-              <Button className="btn-luxury flex-1" disabled={submitting} onClick={place}>{submitting ? "Placing…" : "Place Bet"}</Button>
+              <Button className="btn-luxury flex-1" disabled={submitting || selections.length < 3} onClick={place}>{submitting ? "Placing…" : `Place Bet${selections.length < 3 ? ` (need ${3 - selections.length} more)` : ""}`}</Button>
             </div>
-            <p className="text-[10px] text-muted-foreground text-center">Tokens are deducted on placement. Cash-out available only after the match ends and your bet wins.</p>
+            <p className="text-[10px] text-muted-foreground text-center">Minimum 3 selections required. Tokens are deducted on placement. Cash-out available only after the match ends and your bet wins.</p>
           </div>
         )}
         </div>
