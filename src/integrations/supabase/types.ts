@@ -841,6 +841,8 @@ export type Database = {
           expires_at: string | null
           id: string
           is_active: boolean
+          max_uses: number | null
+          target_user_ids: string[] | null
           usage_limit: number
           used_count: number
         }
@@ -852,6 +854,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          max_uses?: number | null
+          target_user_ids?: string[] | null
           usage_limit?: number
           used_count?: number
         }
@@ -863,6 +867,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           is_active?: boolean
+          max_uses?: number | null
+          target_user_ids?: string[] | null
           usage_limit?: number
           used_count?: number
         }
@@ -1277,16 +1283,20 @@ export type Database = {
           amount: number | null
           code: string | null
           created_by: string | null
+          expires_at: string | null
           generated_at: string | null
           generated_by_email: string | null
           generated_by_name: string | null
           is_active: boolean | null
+          max_uses: number | null
           promo_id: string | null
           redemption_id: string | null
+          target_user_ids: string[] | null
           usage_limit: number | null
           used_at: string | null
           used_by: string | null
           used_by_email: string | null
+          used_by_gang_name: string | null
           used_by_name: string | null
           used_count: number | null
         }
