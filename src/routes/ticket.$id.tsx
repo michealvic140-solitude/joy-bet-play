@@ -97,11 +97,11 @@ export function BetVoucher({ bet, sels, statusBadge, allWon, copy, shareCode }: 
 }) {
   const StatusIcon = statusBadge.Icon;
   return (
-    <div className="relative px-1 py-6 [perspective:1400px]">
+    <div className="relative px-1 py-6">
       {/* Outer ambient glow */}
-      <div className="absolute -inset-6 rounded-[40px] bg-[radial-gradient(circle_at_30%_20%,oklch(0.85_0.22_152/0.35),transparent_60%),radial-gradient(circle_at_80%_80%,oklch(0.82_0.17_90/0.28),transparent_60%)] blur-3xl pointer-events-none" />
+      <div className="absolute -inset-6 rounded-[40px] bg-[radial-gradient(circle_at_30%_20%,oklch(0.85_0.22_152/0.30),transparent_60%),radial-gradient(circle_at_80%_80%,oklch(0.82_0.17_90/0.22),transparent_60%)] blur-3xl pointer-events-none" />
 
-      <div className="relative mx-auto rounded-[32px] voucher-frame voucher-bg overflow-hidden backdrop-blur-2xl [transform:rotateX(2deg)] transition-transform">
+      <div className="relative mx-auto rounded-[28px] voucher-frame voucher-bg overflow-hidden">
         {/* Holographic top tab */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-7 rounded-b-2xl overflow-hidden">
           <div className="absolute inset-0 voucher-holo" />
@@ -112,19 +112,13 @@ export function BetVoucher({ bet, sels, statusBadge, allWon, copy, shareCode }: 
           <div className="absolute inset-0 voucher-holo" />
           <div className="absolute inset-0 bg-gradient-to-t from-transparent to-black/30" />
         </div>
-        {/* Side perforation notches */}
-        <div className="absolute -left-3 top-0 bottom-0 w-3 voucher-perf-side opacity-80" />
-        <div className="absolute -right-3 top-0 bottom-0 w-3 voucher-perf-side opacity-80" />
-        {/* Holographic side patches */}
-        <div className="absolute left-1 top-1/4 w-3 h-16 rounded-md voucher-holo opacity-70" />
-        <div className="absolute right-1 top-1/4 w-3 h-16 rounded-md voucher-holo opacity-70" />
-        <div className="absolute left-1 bottom-1/4 w-3 h-16 rounded-md voucher-holo opacity-70" />
-        <div className="absolute right-1 bottom-1/4 w-3 h-16 rounded-md voucher-holo opacity-70" />
-
-        {/* Subtle circuit pattern background */}
+        {/* Holographic side patches (corners only, like reference) */}
+        <div className="absolute left-2 top-3 w-4 h-10 rounded voucher-holo opacity-80" />
+        <div className="absolute right-2 top-3 w-4 h-10 rounded voucher-holo opacity-80" />
+        <div className="absolute left-2 bottom-3 w-4 h-10 rounded voucher-holo opacity-80" />
+        <div className="absolute right-2 bottom-3 w-4 h-10 rounded voucher-holo opacity-80" />
+        {/* Circuit pattern */}
         <div className="absolute inset-0 voucher-circuit pointer-events-none" />
-        {/* Diagonal sheen */}
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_30%,oklch(0.95_0.05_90/0.07)_50%,transparent_70%)] pointer-events-none" />
 
         <div className="relative px-7 pt-12 pb-8 space-y-6">
           {/* HEADER */}
@@ -140,7 +134,7 @@ export function BetVoucher({ bet, sels, statusBadge, allWon, copy, shareCode }: 
           </div>
 
           {/* CODES */}
-          <div className="rounded-2xl border border-emerald-400/25 bg-black/35 backdrop-blur-xl p-4 grid grid-cols-2 gap-3 neon-green-border">
+          <div className="rounded-2xl voucher-inner p-4 grid grid-cols-2 gap-3">
             <div className="min-w-0">
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Booking Code</div>
               <button onClick={() => copy(bet.booking_code)} className="mt-1 inline-flex items-center gap-2 font-mono font-black text-2xl gold-foil hover:opacity-80 truncate max-w-full">
@@ -174,7 +168,7 @@ export function BetVoucher({ bet, sels, statusBadge, allWon, copy, shareCode }: 
               const sLabel = won ? "WON" : lost ? "LOST" : live ? "LIVE" : ended ? "—" : "PENDING";
               const SIcon = won ? Trophy : lost ? X : live ? ClockIcon : ClockIcon;
               return (
-                <div key={s.id} className="relative rounded-2xl border border-emerald-400/15 bg-black/40 backdrop-blur-xl p-4 shadow-[inset_0_1px_0_oklch(0.95_0.05_90/0.08)]">
+                <div key={s.id} className="relative rounded-2xl voucher-inner p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="text-xs text-muted-foreground">{s.markets?.name}</div>
                     <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${sBadge}`}>
@@ -214,20 +208,17 @@ export function BetVoucher({ bet, sels, statusBadge, allWon, copy, shareCode }: 
             </span>
           </div>
 
-          {/* Perforated divider */}
-          <div className="h-3 voucher-perforation -mx-7" />
-
           {/* TOTALS */}
           <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl border border-emerald-400/20 bg-black/30 backdrop-blur p-3">
+            <div className="rounded-xl voucher-inner p-3">
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Stake</div>
               <div className="font-display font-black text-2xl mt-1">{Number(bet.stake).toLocaleString()}</div>
             </div>
-            <div className="rounded-xl neon-green-border bg-black/30 backdrop-blur p-3">
+            <div className="rounded-xl voucher-inner p-3" style={{ boxShadow: "inset 0 0 18px oklch(0.85 0.22 152 / 0.20), 0 0 0 1px oklch(0.85 0.22 152 / 0.6)" }}>
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Total Odds</div>
               <div className="font-display font-black text-2xl mt-1 neon-green">{Number(bet.total_odds).toFixed(2)}</div>
             </div>
-            <div className="rounded-xl border border-amber-300/30 bg-black/30 backdrop-blur p-3">
+            <div className="rounded-xl voucher-inner p-3" style={{ boxShadow: "inset 0 0 18px oklch(0.82 0.17 90 / 0.20), 0 0 0 1px oklch(0.82 0.17 90 / 0.6)" }}>
               <div className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Potential</div>
               <div className="font-display font-black text-2xl mt-1 gold-foil">{Number(bet.potential_payout).toLocaleString()}</div>
             </div>
