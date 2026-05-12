@@ -63,18 +63,23 @@ function Page() {
         <h2 className="text-xl font-bold mt-8 mb-3 flex items-center gap-2"><Trophy className="h-5 w-5 text-primary" />Markets</h2>
         {m.markets.length === 0 && <p className="text-muted-foreground text-sm">No markets yet.</p>}
         <div className="space-y-3">
-          {m.markets.map((mk) => {
+          {[...m.markets]
+            .sort((a, b) => Number(/correct\s*score/i.test(b.name)) - Number(/correct\s*score/i.test(a.name)))
+            .map((mk) => {
             const isCS = /correct\s*score/i.test(mk.name);
             return (
-              <Card key={mk.id} className="glass p-4">
+              <Card key={mk.id} id={isCS ? "correct-score" : undefined} className={`glass p-4 ${isCS ? "border-primary/40 ring-1 ring-primary/30" : ""}`}>
                 <div className="flex items-center justify-between">
-                  <div className="font-bold">{mk.name}</div>
+                  <div className="font-bold flex items-center gap-2">
+                    {mk.name}
+                    {isCS && <Badge className="bg-primary/20 text-primary border-primary/40" variant="outline">{mk.odds.length} scores</Badge>}
+                  </div>
                   <Badge variant="outline" className={mk.is_open ? "border-accent/40 text-accent" : "border-muted text-muted-foreground"}>
                     {mk.is_open ? "Open" : "Closed"}
                   </Badge>
                 </div>
                 {isCS ? (
-                  <CorrectScoreGrid market={mk} matchLocked={!mk.is_open || m.status !== "scheduled"} matchId={m.id} matchName={`${home} vs ${away}`} selectedOdd={selectedOdd} add={add} remove={remove} />
+                  <CorrectScoreGrid market={mk} matchLocked={!mk.is_open || m.status !== "scheduled"} matchId={m.id} matchName={`${home} vs ${away}`} selectedOdd={selectedOdd} add={add} remove={remove} homeName={home} awayName={away} />
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                     {mk.odds.map((o) => {
@@ -115,13 +120,15 @@ function Side({ name, score, status, logo, align = "left" }: { name: string; sco
 import { Input } from "@/components/ui/input";
 import { Search, Plus as PlusIcon } from "lucide-react";
 
-function CorrectScoreGrid({ market, matchLocked, matchId, matchName, selectedOdd, add, remove }: {
+function CorrectScoreGrid({ market, matchLocked, matchId, matchName, selectedOdd, add, remove, homeName, awayName }: {
   market: any; matchLocked: boolean; matchId: string; matchName: string;
   selectedOdd: string | undefined;
   add: (s: any) => void; remove: (id: string) => void;
+  homeName: string; awayName: string;
 }) {
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [tab, setTab] = useState<"all" | "home" | "draw" | "away">("all");
 
   // Sort: by lowest total goals then home goals
   const sorted = [...(market.odds ?? [])].sort((a: any, b: any) => {
@@ -129,7 +136,14 @@ function CorrectScoreGrid({ market, matchLocked, matchId, matchName, selectedOdd
     return (pa.h + pa.a) - (pb.h + pb.a) || pa.h - pb.h || pa.a - pb.a;
   });
 
-  const filtered = sorted.filter((o: any) => {
+  const filteredByTab = sorted.filter((o: any) => {
+    const p = parseScore(o.label);
+    if (tab === "home") return p.h > p.a;
+    if (tab === "away") return p.a > p.h;
+    if (tab === "draw") return p.h === p.a;
+    return true;
+  });
+  const filtered = filteredByTab.filter((o: any) => {
     if (!search.trim()) return true;
     const q = search.replace(/[-:\s]/g, "");
     return o.label.replace(/[-:]/g, "").includes(q);
@@ -143,6 +157,22 @@ function CorrectScoreGrid({ market, matchLocked, matchId, matchName, selectedOdd
 
   return (
     <div className="mt-3 space-y-3">
+      <div className="grid grid-cols-4 gap-1 rounded-lg border border-border bg-background/40 p-1 text-xs">
+        {([
+          { k: "all", label: "All" },
+          { k: "home", label: `${homeName} wins` },
+          { k: "draw", label: "Draw" },
+          { k: "away", label: `${awayName} wins` },
+        ] as const).map((t) => (
+          <button
+            key={t.k}
+            onClick={() => setTab(t.k)}
+            className={`rounded-md px-2 py-1.5 font-bold transition truncate ${tab === t.k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
       <div className="relative">
         <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search score (e.g. 2-1, 21, 1:3)" className="pl-9" />
