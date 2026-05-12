@@ -1430,6 +1430,7 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_mod_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      redeem_promo_code: { Args: { _code: string }; Returns: Json }
       review_withdrawal_request: {
         Args: { _approve: boolean; _id: string; _note?: string }
         Returns: undefined
